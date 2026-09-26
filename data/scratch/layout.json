@@ -1,0 +1,29 @@
+{
+  "note": "0-1 window coordinates (x0, y0, x1, y1), measured on the 1024x668 window incl. its title bar",
+  "money": [
+    0.085,
+    0.048,
+    0.16,
+    0.09
+  ],
+  "exclude": [
+    [
+      0.0,
+      0.0,
+      1.0,
+      0.045
+    ],
+    [
+      0.945,
+      0.04,
+      1.0,
+      0.1
+    ]
+  ],
+  "money_search": [
+    0.0,
+    0.0,
+    0.5,
+    0.25
+  ]
+}

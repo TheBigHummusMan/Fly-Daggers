@@ -159,6 +159,184 @@ This writes `<backend>_vs_brian2_rate_summary.csv/json`,
 smaller targeted checks where greedy spike-time matching is scientifically
 useful and computationally reasonable.
 
+## Fly Pong
+
+The emulated fly can play Pong. [code/fly_pong.py](code/fly_pong.py) closes
+a sensorimotor loop around the whole-brain model: the ball is shown to the
+fly's visual neurons, the connectome runs, and the fly's steering neurons move
+its paddle. Nothing is trained or fitted. Whether the fly turns toward the
+ball depends only on the connectome's wiring.
+
+```bash
+python code/fly_pong.py                           # you (↑/↓ or W/S) vs the fly
+python code/fly_pong.py --autopilot               # watch the fly play the computer
+python code/fly_pong.py --headless --points 10    # no window, just the score
+python code/fly_pong.py --headless --blind        # control: the fly sees nothing
+```
+
+In game: `A` toggles the autopilot, `Space` pauses, `Esc` quits.
+
+| | Neurons | Mapping |
+|---|---|---|
+| **Eyes** | LC10a visual projection neurons (115 left, 119 right) | Ball bearing from the fly's heading drives Poisson input (up to 200 Hz) to the LC10a on that side |
+| **Brain** | All 138,639 neurons, 15M connections | Same LIF model and parameters as the benchmarks |
+| **Muscles** | DNa01 + DNa02 steering descending neurons | Left − right firing rate sets paddle velocity; a left turn moves the paddle up |
+
+The fly rides its paddle facing the opponent, so its left is up on screen.
+LC10a is the pathway flies use to track small moving objects, and in the
+model each side's LC10a drives the same side's DNa02. So the fly turns toward
+the ball, and the paddle follows it.
+
+The game runs in brain time: one physics tick per simulated millisecond. It
+plays in slow motion at whatever speed the CPU can simulate the brain
+(about 0.3× real time on a laptop CPU). The brain monitor under the field
+shows the live LC10a input and DN firing rates.
+
+Against the built-in computer opponent (`--headless --points 10 --seed 1`),
+the fly won 8–2 and returned 92 of 94 balls (98%). With `--blind`, the only
+returns are balls that happen to hit the still paddle: 4 of 14 (29%), and it
+lost 0–10.
+
+The brain is simulated with [code/fast_brain.py](code/fast_brain.py), an
+event-driven NumPy port of the PyTorch model. It uses the same equations,
+parameters, and update order, and it produces the same spikes as
+`run_pytorch.TorchModel` given the same input (checked with 300 ms of
+sugar-GRN stimulation: 5108 of 5108 spikes identical). It also runs 65–80×
+faster on CPU and lets input rates change every step. It needs only
+numpy, scipy, pandas, pyarrow, and tkinter, with no GPU or PyTorch. If numba is
+installed, it fuses the per-neuron updates into compiled kernels. They produce
+bit-identical spikes about 1.8× faster (checked with 5000 steps of 100 Hz and
+200 Hz input to about 1,000 neurons: every spike, voltage, and conductance
+identical).
+
+Neuron IDs and sides are in `data/fly_pong_neurons.csv`. They come from the
+FlyWire cell-type annotations
+([Schlegel et al. 2024](https://github.com/flyconnectome/flywire_annotations)).
+The left/right names for DNa01, DNa02, and P9 in `example.ipynb` are the
+opposite of FlyWire's `side` labels. Fly Pong uses FlyWire's labels for both
+eyes and muscles, so they are consistent with each other.
+
+## Fly Screen
+
+The emulated fly can watch your screen. [code/fly_screen.py](code/fly_screen.py)
+turns what is on screen into input for the fly's visual neurons and runs the
+whole-brain model. When the fly's descending neurons command a behavior, it
+posts a text message: turning toward something, an escape takeoff, walking,
+feeding, or moving its head.
+
+```bash
+pip install mss                            # screen capture
+python code/fly_screen.py                  # messages in a floating window
+python code/fly_screen.py --no-window      # messages in the terminal
+python code/fly_screen.py --demo           # synthetic scenes, no screen capture
+python code/fly_screen.py --game           # trash talk even when no game is detected
+```
+
+While you play a game, the fly trash-talks you ("Wait, what's that on the
+left? Did you even see it?"). It reacts to the same neurons at the same
+moments; only the wording changes. On macOS, games are detected from the
+frontmost app, every 2 seconds. An app counts as a game if its Info.plist
+has a games category, it is installed in a Steam library, or it is Roblox or
+Minecraft. Other games, including browser games, need `--game`. Clicking the
+fly's own window doesn't end game mode, and the fly announces when you start
+and stop a game.
+
+On macOS, the app you run it from needs Screen Recording permission (System
+Settings → Privacy & Security → Screen Recording). Without it, the fly sees
+only the desktop wallpaper.
+
+| On screen | Input neurons | Output neurons | Reaction |
+|---|---|---|---|
+| Something small moving (cursor, typing) | LC10a (115 left, 119 right) | DNa02 steering | Turns toward it |
+| Something big appearing suddenly | LC4 + LPLC2 (162 left, 152 right) | DNp01 Giant Fiber | Escape takeoff |
+| Motion that keeps going (a video) | LC9 (87 left, 92 right) | DNp09 (P9) | Walks forward |
+| The whole view sliding sideways | HSE, HSN, HSS, H2 | DNp15 | Turns its head |
+| Scrolling | VS1–VS8 | DNp20 | Tilts its head |
+| Saturated red, orange, or yellow | 21 sugar GRNs | MN9 | Extends its proboscis |
+
+The left half of the screen is the fly's left eye. The screen features stand
+in for the optic lobe: in this model, driving the photoreceptors (R7, R8)
+directly reaches nothing downstream. The input channels were chosen by
+stimulating candidate populations at 150 Hz for 300 ms and keeping those
+with a clean, same-side path to one behavior's descending neurons. Sending
+colors to taste neurons isn't biology; it's there for fun.
+
+From the input neurons to the descending neurons, the connectome is
+unmodified, and a message reports only what the descending neurons do. So the
+messages include the network's cross-talk. For example, right-eye LC10a also
+drives MN9, so a fly tracking something on its right sometimes sticks out
+its proboscis. Each message lists the firing rates behind it and the input
+neurons that were driven:
+
+```text
+[14:02:11] Fly: What's that on my left? Turning to look.
+           (DNa02 steering L 79 · R 0 Hz   |   input: LC10a L 150 Hz)
+```
+
+The fly looks about four times a second and simulates 50 ms of brain time
+per look (0.1–0.3× real time on a laptop CPU). Changes that keep recurring in
+one spot, like a blinking cursor or a spinner, habituate. Looming stops
+startling it after about a second, so a video that starts playing causes an
+escape and then walking. The message window is masked out of what the fly
+sees. With `--no-window`, the fly can see the terminal it prints to, so keep
+that out of view. Neuron IDs and roles are in `data/fly_screen_neurons.csv`,
+from the same FlyWire annotations as Fly Pong.
+
+## Fly Scratch: the fly plays Scritchy Scratchy
+
+The fly plays the scratch-card game
+[Scritchy Scratchy](https://store.steampowered.com/app/3948120/Scritchy_Scratchy/)
+(Steam, macOS or Windows) with the mouse cursor as its body. The connectome is
+never changed. What gets trained is only the interface between the screen, the
+neurons, and the mouse: 51 numbers (the `Genome`), evolved with CMA-ES.
+
+| Game | Input neurons | Output neurons | Mouse |
+|---|---|---|---|
+| Contrast in two eye patches ahead of the cursor | LC10a | DNa01 + DNa02, left − right | Turn |
+| Change in the eye patches (e.g. foil coming off) | LC9 | DNp09 | Walk speed; above a threshold the button is held, which scratches |
+| Sudden darkening | LC4 + LPLC2 | DNp01 Giant Fiber | Jump backwards |
+| Colours under the cursor | 21 sugar GRNs, 32 bitter GRNs | MN9 | Click |
+
+Evolution chooses which colours taste sweet or bitter. The fly is given
+perceptual features only, never game state. In the connectome, bitter GRNs
+silence the sugar → MN9 pathway: MN9 drops from 52/84 Hz to 0 Hz when the left
+bitter GRNs are driven at 150 Hz alongside the sugar GRNs. So something bitter
+is never clicked, however sweet it also is.
+
+The real game runs in real time, one copy at a time, so most evolution happens
+in `ScratchSim`, a fast Python stand-in. It renders the same layout, on a
+backdrop taken from a real screenshot, at the fly's own resolution. The real
+game is for recording, validation, and fine-tuning.
+
+```bash
+pip install cma pillow numba pyobjc-framework-Quartz pyobjc-framework-Vision
+python code/scratch/game_io.py --selftest        # finds the window, captures, OCRs, moves the cursor
+python code/scratch/recorder.py --minutes 30     # record yourself playing (to calibrate the sim)
+python code/scratch/evolve.py --workers 3 --hours 8          # evolve in the sim
+python code/scratch/evolve.py --eval <run>/best.json --controls   # vs blind fly and shuffled wiring
+python code/scratch/play.py --genome <run>/best.json         # the fly plays the real game
+code/scratch/cloud.sh setup <ip>                 # the same evolution on a rented Linux box
+```
+
+- **Real game.** `game_io.py` finds the window with Quartz, captures it with
+  mss, posts mouse events, reads the money counter with Apple Vision OCR, and
+  snapshots or restores the save
+  (`~/Library/Application Support/Lunch Money Games/Scritchy Scratchy/save.json`,
+  the game's full state as JSON). Turn off Steam Cloud for the game before
+  restoring saves.
+- **Safety.** The fly only touches the mouse while the game is the frontmost
+  app. It never clicks the title bar or the settings gear
+  (`data/scratch/layout.json`). Moving the mouse yourself, or into a screen
+  corner, stops it.
+- **Needs.** Screen Recording and Accessibility permission for the app you
+  run it from.
+- **Status.** The sim's ticket rules (`sim.RULES`) are placeholders until
+  they're calibrated from recordings. Upgrades, the Scratch Bot, loans, and
+  prestige aren't simulated yet.
+
+Neuron IDs and roles are in `data/scratch_neurons.csv`: the Fly Screen groups,
+plus the bitter GRNs and DNa01 from the FlyWire annotations.
+
 ## Installation
 
 ### Conda environment
@@ -367,6 +545,9 @@ fly-brain/
 │   ├── compare_ground_truth.py # Compare backends against Brian2 (CPU) ground truth
 │   ├── compare_spike_outputs.py      # Pairwise spike comparisons across all frameworks
 │   ├── compare_backend_to_brian2.py  # One backend vs Brian2 (CPU) across labeled rounds
+│   ├── fast_brain.py           # Event-driven NumPy port of the PyTorch model (closed-loop use)
+│   ├── fly_pong.py             # Fly Pong: the emulated fly plays Pong
+│   ├── fly_screen.py           # Fly Screen: the emulated fly watches your screen
 │   └── paper-phil-drosophila/  # Original paper code (not used by benchmarks)
 │       ├── LICENSE             # Upstream MIT license
 │       ├── model.py            # Core LIF network model (Brian2)
@@ -377,6 +558,8 @@ fly-brain/
 │   ├── 2025_Completeness_783.csv       # Neuron list (FlyWire v783)
 │   ├── 2025_Connectivity_783.parquet   # Synapse connectivity (FlyWire v783)
 │   ├── benchmark-results.csv           # Accumulated benchmark timings
+│   ├── fly_pong_neurons.csv            # Fly Pong eye (LC10a) and steering (DNa01/02) neurons
+│   ├── fly_screen_neurons.csv          # Fly Screen input and behavior neurons
 │   ├── ground-truth-comparison.json   # Backend accuracy vs Brian2 (CPU)
 │   ├── sez_neurons.pickle              # SEZ neuron subset (for figures)
 │   ├── weight_coo.pkl                  # Cached sparse weights COO (gitignored)

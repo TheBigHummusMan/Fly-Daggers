@@ -224,3 +224,9 @@ __marimo__/
 Weights.zip
 data/weight_coo.pkl
 data/weight_csr.pkl
+
+# Scritchy Scratchy: recordings, save snapshots, debug captures, evolution runs
+data/scratch/recordings/
+data/scratch/saves/
+data/scratch/*.png
+data/scratch/evolve/
