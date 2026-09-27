@@ -312,6 +312,9 @@ game is for recording, validation, and fine-tuning.
 pip install cma pillow numba pyobjc-framework-Quartz pyobjc-framework-Vision
 python code/scratch/game_io.py --selftest        # finds the window, captures, OCRs, moves the cursor
 python code/scratch/recorder.py --minutes 30     # record yourself playing (to calibrate the sim)
+python code/scratch/sprites.py                   # cut the sim's images out of recordings
+python code/scratch/calibrate.py                 # starting genome from your clicks and speed
+python code/scratch/validate.py                  # is the sim close enough to the real game?
 python code/scratch/evolve.py --workers 3 --hours 8          # evolve in the sim
 python code/scratch/evolve.py --eval <run>/best.json --controls   # vs blind fly and shuffled wiring
 python code/scratch/play.py --genome <run>/best.json         # the fly plays the real game
@@ -330,9 +333,14 @@ code/scratch/cloud.sh setup <ip>                 # the same evolution on a rente
   corner, stops it.
 - **Needs.** Screen Recording and Accessibility permission for the app you
   run it from.
-- **Status.** The sim's ticket rules (`sim.RULES`) are placeholders until
-  they're calibrated from recordings. Upgrades, the Scratch Bot, loans, and
-  prestige aren't simulated yet.
+- **Status.** The sim follows the recorded game loop: buy → click the item →
+  scrub the plate or scratch the ticket cells → claim. It covers unlock goals
+  3 / 10 / 50 / 100 / 1,000 / 2,000, phone calls, popups, upgrades, gadgets,
+  ticket levels, and the Scratch Bot. Prices, odds, payouts, and layouts come
+  from recordings (`sprites.py` cuts the images out of them). Scratch speed is
+  tuned to human-paced rubbing. Rules nobody has observed yet (Apple Tree, the
+  bot's timing, losing tickets, level-up costs) are marked `ASSUMED` in
+  `sim.RULES`.
 
 Neuron IDs and roles are in `data/scratch_neurons.csv`: the Fly Screen groups,
 plus the bitter GRNs and DNa01 from the FlyWire annotations.

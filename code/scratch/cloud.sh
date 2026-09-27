@@ -19,11 +19,11 @@ REMOTE=fly
 case "$cmd" in
 setup)
     ssh "$host" "mkdir -p $REMOTE/code/scratch $REMOTE/data/scratch"
-    rsync -az --info=progress2 code/fast_brain.py code/benchmark.py "$host:$REMOTE/code/"
+    rsync -az code/fast_brain.py code/benchmark.py "$host:$REMOTE/code/"
     rsync -az code/scratch/cursor_fly.py code/scratch/sim.py code/scratch/evolve.py "$host:$REMOTE/code/scratch/"
-    rsync -az --info=progress2 data/2025_Completeness_783.csv data/2025_Connectivity_783.parquet \
+    rsync -az data/2025_Completeness_783.csv data/2025_Connectivity_783.parquet \
         data/scratch_neurons.csv "$host:$REMOTE/data/"
-    rsync -az data/scratch/look.png "$host:$REMOTE/data/scratch/"
+    rsync -az data/scratch/sprites "$host:$REMOTE/data/scratch/"
     ssh "$host" "set -e
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -qq && apt-get install -y -qq python3-venv tmux >/dev/null

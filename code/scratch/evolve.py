@@ -38,7 +38,13 @@ from cursor_fly import LOOK_MS, CursorFly, Genome, GENE_NAMES  # noqa: E402
 
 RUNS_DIR = Path(__file__).resolve().parents[2] / 'data' / 'scratch' / 'evolve'
 FORBIDDEN_PENALTY = 0.5          # fitness per forbidden click
-SHAPING = 0.5                    # fitness per ticket's worth of foil scratched (sim only)
+SHAPING = 2.0                    # fitness per item's worth of dirt/foil scratched (sim only; --shaping)
+FINISH_BONUS = 3.0               # fitness per item scratched to the end (sim only; --finish-bonus)
+CLAIM_BONUS = 3.0                # fitness per claim button clicked or loser trashed (sim only; --claim-bonus)
+
+def rewards(args):
+    return args.shaping, args.finish_bonus, args.claim_bonus
+
 
 # Filled in the parent before forking, shared copy-on-write by the workers
 WEIGHTS = {}
@@ -84,12 +90,13 @@ def run_episode(env, fly, seconds, seed=None, save=None, on_look=None):
 def evaluate(task):
     """Worker: play one sim episode with one genome."""
     from sim import ScratchSim
-    unit, seed, seconds, variant = task
+    unit, seed, seconds, variant, (shaping, finish_bonus, claim_bonus) = task
     weights = WEIGHTS['shuffled' if variant == 'shuffled' else 'real']
     fly = CursorFly(weights, WEIGHTS['flyid2i'], Genome.from_unit(np.asarray(unit)),
                     seed=seed, blind=variant == 'blind')
     gained, stats = run_episode(ScratchSim(), fly, seconds, seed=seed)
-    fit = (signed_log(gained) + SHAPING * stats.get('foil_cleared', 0.0)
+    fit = (signed_log(gained) + shaping * stats.get('foil_cleared', 0.0)
+           + finish_bonus * stats.get('finished', 0) + claim_bonus * stats.get('claimed', 0)
            - FORBIDDEN_PENALTY * stats.get('forbidden_clicks', 0))
     return fit, gained, stats
 
@@ -147,7 +154,7 @@ def evolve(args):
         t0 = time.time()
         pop = es.ask()
         seeds = [args.seed * 100000 + gen * 100 + k for k in range(args.episodes)]   # shared by all genomes
-        tasks = [(list(u), s, args.seconds, 'normal') for u in pop for s in seeds]
+        tasks = [(list(u), s, args.seconds, 'normal', rewards(args)) for u in pop for s in seeds]
         results = pool.map(evaluate, tasks, chunksize=1) if pool else list(map(evaluate, tasks))
         fits = np.array([r[0] for r in results]).reshape(len(pop), len(seeds)).mean(axis=1)
         gains = np.array([r[1] for r in results])
@@ -186,7 +193,7 @@ def eval_controls(args):
     unit = list(Genome.load(args.eval).to_unit())
     variants = ['normal'] + (['blind', 'shuffled'] if args.controls else [])
     seeds = [10_000 + k for k in range(args.n_seeds)]
-    tasks = [(unit, s, args.seconds, v) for v in variants for s in seeds]
+    tasks = [(unit, s, args.seconds, v, rewards(args)) for v in variants for s in seeds]
     pool = make_pool(args.workers) if args.workers > 1 else None
     results = pool.map(evaluate, tasks, chunksize=1) if pool else list(map(evaluate, tasks))
     print(f'{args.eval}: {args.n_seeds} seeds x {args.seconds:.0f} s')
@@ -250,6 +257,12 @@ def main():
     parser.add_argument('--seconds', type=float, default=60.0, help='brain seconds per episode')
     parser.add_argument('--episodes', type=int, default=2, help='sim episodes per genome')
     parser.add_argument('--popsize', type=int, default=16)
+    parser.add_argument('--shaping', type=float, default=SHAPING,
+                        help='fitness per item of dirt/foil scratched off (sim only)')
+    parser.add_argument('--finish-bonus', type=float, default=FINISH_BONUS,
+                        help='fitness per item scratched to the end (sim only)')
+    parser.add_argument('--claim-bonus', type=float, default=CLAIM_BONUS,
+                        help='fitness per payout claimed or loser trashed (sim only)')
     parser.add_argument('--sigma', type=float, default=0.2, help='CMA-ES step size, in unit coordinates')
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--start', help='genome json to start from (default: start_genome.json, else hand-set)')
