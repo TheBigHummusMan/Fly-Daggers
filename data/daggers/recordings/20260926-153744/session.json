@@ -1,0 +1,21 @@
+{
+ "fps": 20,
+ "frame_w": 128,
+ "frame_h": 72,
+ "buttons": [
+  "w",
+  "a",
+  "s",
+  "d",
+  "jump",
+  "lmb",
+  "rmb"
+ ],
+ "check_cursor": true,
+ "started": "2026-09-26T15:37:44.298392",
+ "window": [
+  1920,
+  1080
+ ],
+ "frames": 26857
+}
