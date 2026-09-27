@@ -2,11 +2,11 @@
 Event-driven NumPy version of the PyTorch LIF model for closed-loop use.
 
 Implements exactly the same equations, parameters, and update order as
-TorchModel in run_pytorch.py (Shiu et al. LIF + alpha synapse + delay +
+the Shiu et al. PyTorch model (TorchModel; Shiu et al. LIF + alpha synapse + delay +
 refractory period), but instead of a 138k x 138k sparse matmul every 0.1 ms
 step, the recurrent input is gathered only from the handful of neurons that
 spiked. That makes it fast enough on a laptop CPU to drive an interactive
-game (see fly_pong.py), where the stimulus changes every few milliseconds.
+game (see code/daggers), where the stimulus changes every few milliseconds.
 
 Unlike TorchModel, Poisson input rates can be changed between steps, which is
 what lets the game feed sensory input into the connectome in real time.
@@ -19,7 +19,11 @@ import pandas as pd
 import pyarrow.parquet as pq
 from scipy import sparse
 
-from benchmark import path_comp, path_con
+from pathlib import Path
+
+DATA_DIR = Path(__file__).resolve().parent.parent / 'data'
+path_comp = DATA_DIR / '2025_Completeness_783.csv'     # FlyWire v783 neuron list
+path_con = DATA_DIR / '2025_Connectivity_783.parquet'  # FlyWire v783 synapses
 
 try:
     from numba import njit
@@ -28,7 +32,7 @@ except ImportError:
     HAVE_NUMBA = False
 
 # ============================================================================
-# Model Parameters (identical to run_pytorch.MODEL_PARAMS / DT)
+# Model Parameters (identical to the Shiu et al. PyTorch model)
 # ============================================================================
 
 MODEL_PARAMS = {

@@ -15,7 +15,6 @@ worker runs one genome, so --popsize defaults to the number of workers.
 
 Usage:
     python code/daggers/train.py evolve --workers 7 --hours 1           # this machine
-    python code/daggers/train.py evolve --workers 31 --hours 8          # Vultr (cloud.sh run)
     python code/daggers/train.py evolve --resume data/daggers/runs/<run>
     python code/daggers/train.py export data/daggers/runs/<run>         # -> <run>/policy.json
     python code/daggers/train.py controls data/daggers/runs/<run>       # vs blind, shuffled wiring, no brain

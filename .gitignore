@@ -220,17 +220,6 @@ __marimo__/
 # macOS
 .DS_Store
 
-# Generated weight matrices (too large for git; exceed GitHub's 100MB limit)
-Weights.zip
-data/weight_coo.pkl
-data/weight_csr.pkl
-
-# Scritchy Scratchy: recordings, save snapshots, debug captures, evolution runs
-data/scratch/recordings/
-data/scratch/saves/
-data/scratch/*.png
-data/scratch/evolve/
-
 # Fly Daggers: gameplay recordings, prepared features, training runs
 data/daggers/recordings/
 data/daggers/prepared/

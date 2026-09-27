@@ -2,7 +2,7 @@
 Event-driven whole-brain LIF model, fast enough to play a real-time game.
 
 Same equations, parameters, and update order as fast_brain.FastBrain (and so
-run_pytorch.TorchModel), but a neuron is only computed when it matters: when
+the Shiu et al. PyTorch model), but a neuron is only computed when it matters: when
 a synaptic input arrives, when a Poisson input kicks it, or while it is
 "hot", meaning its membrane might still cross threshold on its own. FastBrain
 updates all 138,639 neurons every 0.1 ms step; this updates the few thousand
