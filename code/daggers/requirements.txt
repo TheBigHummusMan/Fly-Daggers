@@ -1,0 +1,9 @@
+# Fly Daggers (installed by daggers\setup.bat). Tested with Python 3.13 and:
+# numpy 2.5.3, scipy 1.18.1, pandas 3.0.6, pyarrow 25.0.1, numba 0.67.0, cma 4.5.0, pillow 12.3.0
+numpy>=1.26
+scipy>=1.11
+pandas>=2.0
+pyarrow>=14
+numba>=0.59
+cma>=3.3
+pillow>=10

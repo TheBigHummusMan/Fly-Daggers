@@ -230,3 +230,12 @@ data/scratch/recordings/
 data/scratch/saves/
 data/scratch/*.png
 data/scratch/evolve/
+
+# Fly Daggers: gameplay recordings, prepared features, training runs
+data/daggers/recordings/
+data/daggers/prepared/
+data/daggers/*.log
+# ...but keep each run's trained policy and best genes (small), so any laptop can play
+data/daggers/runs/*/*
+!data/daggers/runs/*/policy.json
+!data/daggers/runs/*/best.json

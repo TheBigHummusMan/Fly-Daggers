@@ -1,0 +1,20 @@
+{
+  "genes": {
+    "object_gain": 0.6,
+    "object_sat": 0.0,
+    "object_ecc": 0.5,
+    "red_weight": 1.0,
+    "loom_gain": 0.6,
+    "loom_sat": 0.0,
+    "loom_tau": 0.3,
+    "bustle_gain": 0.6,
+    "bustle_sat": 0.0,
+    "pan_gain": 0.0,
+    "pan_sat": 0.0,
+    "scroll_gain": 0.0,
+    "scroll_sat": 0.0,
+    "taste_gain": 0.6,
+    "taste_sat": 0.0
+  },
+  "note": "untrained default genome, banded eyes"
+}

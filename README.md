@@ -337,6 +337,82 @@ code/scratch/cloud.sh setup <ip>                 # the same evolution on a rente
 Neuron IDs and roles are in `data/scratch_neurons.csv`: the Fly Screen groups,
 plus the bitter GRNs and DNa01 from the FlyWire annotations.
 
+## Fly Daggers: the fly plays Devil Daggers
+
+Every command, with all its options: [code/daggers/README.md](code/daggers/README.md).
+
+The fly plays [Devil Daggers](https://store.steampowered.com/app/422970/Devil_Daggers/)
+on Windows, after learning from recordings of a person playing. As in Fly
+Scratch, the connectome is never changed. Two things are trained: how the game
+drives the fly's visual neurons (15 numbers, the `Genome`, evolved with
+CMA-ES), and a linear readout from all 1,409 descending and motor neurons,
+the brain's output to the body, to the keys and mouse (ridge regression).
+
+| Game | Input neurons | |
+|---|---|---|
+| Bright or red things, weighted by how far off-centre they are | LC10a | per eye |
+| A sudden rise in how much of one side is things | LC4 + LPLC2 | per eye |
+| Motion that keeps going, after removing the view's own turning | LC9 | per eye |
+| Redness (gems, some enemies) | 21 sugar GRNs | |
+| The view sliding sideways or up and down | HS + H2, VS | off by default |
+| **Output** | **1,409 descending + motor neurons** | **Readout: W, A, S, D, jump, both mouse buttons, mouse x and y** |
+
+The left half of the game window is the fly's left eye. The fly sees only
+these features, never game state. The self-motion channels are off by default.
+When the player turns smoothly, a readout fitted to their play can learn "the
+view is sliding, so keep turning". Played in closed loop, that makes the fly
+spin. With them off, the fly has to turn toward what it sees.
+
+A genome's fitness is how much of what the player did can be read from the
+fly's output neurons while it watches the player's recordings. That is the
+cross-validated R² of the readout, averaged over buttons and mouse axes,
+counting unpredictable outputs as 0. Training uses only the Retina's fixed
+features, a few MB per hour of play; the recorded frames are needed only to
+make them.
+
+On Windows, double-click the launchers in `daggers\`: `setup.bat` once, then
+`record.bat`, `train.bat`, `play.bat`. Details and every option are in
+[code/daggers/README.md](code/daggers/README.md).
+
+- **Recording.** `record.py` captures the game window 20 times a second at
+  128×72 and records which buttons were held and how far the mouse moved
+  until the next frame. It reads your keyboard and mouse through raw input,
+  so it gets the game's own mouse counts. It records only while the game has
+  focus and the cursor is hidden, so menus and the death screen are left out.
+  Play windowed or borderless: in exclusive fullscreen the capture shows the
+  window behind the game, and those stretches are dropped. The player's glowing hand is masked out (`eyes.MASKS`); check it
+  with `--preview`.
+- **Training.** Record at least an hour of play; every fifth clip is held
+  out. `train.py controls <run>` compares the trained fly with three controls
+  on the held-out clips: a blind fly, a connectome with shuffled wiring, and no
+  brain at all (the readout fitted straight to the eyes). If the fly doesn't
+  beat "no brain", the connectome is not adding anything.
+- **Playing.** The fly presses keys and moves the mouse with SendInput, and
+  only while the game has focus and is in play. If you move the mouse or
+  press a key yourself, it lets go for 2 seconds. F9 pauses the fly and F10
+  stops it. When the fly dies, it presses R to start the next run.
+
+Neither Devil Daggers nor a recording has been run through this yet. The
+pipeline has been checked end to end on synthetic gameplay (moving bright
+enemies on a textured floor, and a scripted player who aims at them), not on
+the real game.
+
+The brain is simulated by `code/daggers/brain.py` (`EventBrain`), the same
+model as `fast_brain.py` and in the same update order, but event-driven per
+neuron. A neuron is computed only when input reaches it, or while its leftover
+conductance could still carry it over threshold on its own. In between, it
+jumps ahead with the closed form of the model's own per-step recurrence.
+Checked against `FastBrain` with identical Poisson input: the spikes are the
+same until float rounding first puts a membrane on the other side of
+threshold (float64 here, float32 there), by under 0.001 mV. On a laptop CPU
+(Ryzen 7 7730U), with every input channel busy, it runs at 0.85× real time,
+2.2× faster than `FastBrain`. With half that input it runs at 1.4× real time.
+
+Neuron IDs and roles are in `data/daggers_neurons.csv`, built by
+`code/daggers/make_neurons.py`: the Fly Screen input groups, and every
+`descending` and `motor` neuron in the FlyWire annotations. Tests:
+`python -m unittest tests.test_daggers`.
+
 ## Installation
 
 ### Conda environment
@@ -535,6 +611,7 @@ fly-brain/
 ├── main.py                     # Entrypoint (benchmark runner CLI)
 ├── environment.yml             # Conda env definition (brain-fly)
 ├── environment-brian2genn.yml  # Separate Brian2GeNN env definition
+├── daggers/                    # Fly Daggers launchers: setup, record, train, play, check (.bat)
 ├── code/
 │   ├── benchmark.py            # Orchestrator: config, logging, dispatcher
 │   ├── run_brian2_cuda.py      # Brian2 / Brian2CUDA benchmark runner
@@ -548,6 +625,16 @@ fly-brain/
 │   ├── fast_brain.py           # Event-driven NumPy port of the PyTorch model (closed-loop use)
 │   ├── fly_pong.py             # Fly Pong: the emulated fly plays Pong
 │   ├── fly_screen.py           # Fly Screen: the emulated fly watches your screen
+│   ├── daggers/                # Fly Daggers: the fly learns to play Devil Daggers
+│   │   ├── brain.py            # EventBrain: event-driven LIF model, real-time capable
+│   │   ├── eyes.py             # Retina (fixed features) and Eyes (evolved genome)
+│   │   ├── fly.py              # Neuron groups, brain wrapper, ridge readout, policy files
+│   │   ├── winio.py            # Windows: window capture, raw input, SendInput
+│   │   ├── record.py           # Record a person playing
+│   │   ├── dataset.py          # Recordings -> prepared features -> training clips
+│   │   ├── train.py            # CMA-ES evolution, readout export, controls
+│   │   ├── play.py             # The trained fly plays
+│   │   └── make_neurons.py     # Builds data/daggers_neurons.csv from FlyWire annotations
 │   └── paper-phil-drosophila/  # Original paper code (not used by benchmarks)
 │       ├── LICENSE             # Upstream MIT license
 │       ├── model.py            # Core LIF network model (Brian2)
@@ -560,6 +647,7 @@ fly-brain/
 │   ├── benchmark-results.csv           # Accumulated benchmark timings
 │   ├── fly_pong_neurons.csv            # Fly Pong eye (LC10a) and steering (DNa01/02) neurons
 │   ├── fly_screen_neurons.csv          # Fly Screen input and behavior neurons
+│   ├── daggers_neurons.csv             # Fly Daggers inputs and 1,409 readout neurons
 │   ├── ground-truth-comparison.json   # Backend accuracy vs Brian2 (CPU)
 │   ├── sez_neurons.pickle              # SEZ neuron subset (for figures)
 │   ├── weight_coo.pkl                  # Cached sparse weights COO (gitignored)
